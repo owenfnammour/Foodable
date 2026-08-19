@@ -5,8 +5,8 @@
   "description": "This is a food tracker app, It offers:  \r - showing nutritional values and micro nutrients of food.\r - creating new food or dishes.\r - progress trackers in multiple aspects ( such as macros and micros).\r - progress analysis over periods.",
   "main": "server.js",
   "scripts": {
-    "start" : "node server.js",
-    "dev" : "nodemon server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "repository": {
     "type": "git",
@@ -20,8 +20,10 @@
   },
   "homepage": "https://github.com/owenfnammour/Foodie#readme",
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.23.3"
   },
   "devDependencies": {

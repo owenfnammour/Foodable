@@ -2,12 +2,14 @@ import express from 'express';
 import db from './db.js';
 import 'dotenv/config';
 import router from './routes/methods.js'
+import routerA from './routes/auth.js';
 
 const app = express();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/routes',router);
+app.use('/api/auth',routerA)
+app.use('/api/methods',router);
 
 async function testConnection(){
     try{

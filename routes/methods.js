@@ -1,17 +1,15 @@
 import db from '../db.js';
 import express from 'express';
+import { authenticateToken } from '../middleware/auth.js';
 const router = express.Router();
 
 
 // Get Weight & Intake O
-router.get('/profile/:id', async (req,res,next) => {
+router.get('/profile', authenticateToken, async (req,res,next) => {
 
     try{
-        const id = parseInt(req.params.id);
+        const id = req.user.userId;
 
-        if (isNaN(id) || id <= 0){
-            return res.status(400).json({message: "Invalid User ID"});
-        }
         const [rows] = await db.query('SELECT weight,daily_total FROM users WHERE id = ?',[id]);
 
         if (rows.length === 0){
@@ -25,13 +23,9 @@ router.get('/profile/:id', async (req,res,next) => {
 });
 
 // Update Daily Weight O
-router.put('/profile/:id/weight', async (req, res, next) => {
+router.put('/profile/weight', authenticateToken, async (req, res, next) => {
     try{
-        const id = parseInt(req.params.id);
-
-        if (isNaN(id) || id <= 0){
-            return res.status(400).json({message: "Invalid User ID"});
-        }
+        const id = req.user.userId;
 
         const weight = parseFloat(req.body.weight);
 
@@ -41,7 +35,7 @@ router.put('/profile/:id/weight', async (req, res, next) => {
         
         const [result] = await db.query('UPDATE users SET weight = ? WHERE id = ?', [weight, id]);
         
-        if (result.unaffectedRows === 0){
+        if (result.affectedRows === 0){
             return res.status(404).json({message: "User Not Found"});
         }
 
@@ -53,17 +47,12 @@ router.put('/profile/:id/weight', async (req, res, next) => {
 });
 
 // Update Daily Intake O
-router.put('/profile/:id/intake', async (req, res, next) => {
+router.put('/profile/intake', authenticateToken, async (req, res, next) => {
     try{
-        const id = parseInt(req.params.id);
-
-        if (isNaN(id) || id <= 0){
-            return res.status(400).json({message: "Invalid User ID"});
-        }
+        const id = req.user.userId;
 
         const intake = parseInt(req.body.intake);
 
-        
         if (!isNaN(intake) && intake > 0){
             const [result] = await db.query('UPDATE users SET daily_total = ? WHERE id = ?',[intake, id]);
 
@@ -83,7 +72,7 @@ router.put('/profile/:id/intake', async (req, res, next) => {
 });
 
 // Get All Foods O
-router.get('/foods', async (req, res, next) => {
+router.get('/foods', authenticateToken,  async (req, res, next) => {
     try {
         const [rows] = await db.query('SELECT * FROM foods');
         res.status(200).json(rows);
@@ -94,12 +83,12 @@ router.get('/foods', async (req, res, next) => {
 });
 
 // Create New Food O
-router.post('/foods/add', async (req, res, next) => {
+router.post('/foods/add', authenticateToken,  async (req, res, next) => {
     try{    
 
         const facts = [req.body.name, req.body.calorie, req.body.protein, req.body.carbs, req.body.fat];
 
-        if (facts[0] && facts[0].trim().length !== 0 && !isNaN(facts[1]) && !isNaN(facts[2]) && !isNaN(facts[3]) && !isNaN(facts[4])){
+        if (facts[0] && typeof facts[0] === 'string' && facts[0].trim().length !== 0 && !isNaN(facts[1]) && !isNaN(facts[2]) && !isNaN(facts[3]) && !isNaN(facts[4])){
             await db.query("INSERT INTO foods (name, calorie, protein, carbs, fat) VALUES (?,?,?,?,?)", facts);
             res.status(201).json({message: "New Food Created"});
         }
@@ -113,44 +102,12 @@ router.post('/foods/add', async (req, res, next) => {
     }
 });
 
-// Get a diary for a certain date O
-router.get('/diary/date/:id/:date', async (req, res, next) => {
-    try{
-        const date = req.params.date;
-
-        if (isNaN(Date.parse(date))) {
-            return res.status(400).json({ message: "Invalid Date Format" });
-        }
-
-        // user id
-        const id = parseInt(req.params.id);
-
-        if (isNaN(id) || id <= 0){
-            return res.status(400).json({message: "Invalid User ID"});
-        }
-
-        const [rows] = await db.query('SELECT * FROM daily_logs WHERE user_id = ? AND log_date = ?', [id, date]);
-
-        if (rows.length === 0){
-            return res.status(404).json({message: "Diary Not Found"});
-        }
-        res.status(200).json(rows);
-    }
-    catch(error){
-        next(error);
-    }
-})
-
 // Get Daily Logs O
-router.get('/diary/:id', async (req,res,next) =>{
+router.get('/diary', authenticateToken, async (req,res,next) =>{
 
     try{
         
-        const id = parseInt(req.params.id);
-
-        if (isNaN(id) || id <= 0){
-            return res.status(400).json({message: "Invalid User ID"});
-        }
+        const id = req.user.userId;
 
         const [rows] = await db.query('SELECT * FROM daily_logs WHERE user_id = ? AND log_date = CURDATE()', [id]);
 
@@ -161,14 +118,35 @@ router.get('/diary/:id', async (req,res,next) =>{
     }
 });
 
-// Add Food to the diary O
-router.post('/diary/add/food', async (req,res,next) => {
+// Get a diary for a certain date O
+router.get('/diary/:date', authenticateToken, async (req, res, next) => {
     try{
-        const {userId, foodId, logDate, mealChoice, amount} = req.body;
+        const date = req.params.date;
 
-        if (isNaN(userId) || userId <= 0){
-            return res.status(400).json({message: "Invalid User ID"});
+        if (isNaN(Date.parse(date))) {
+            return res.status(400).json({ message: "Invalid Date Format" });
         }
+
+        const id = req.user.userId;
+
+        const [rows] = await db.query('SELECT * FROM daily_logs WHERE user_id = ? AND log_date = ?', [id, date]);
+
+        if (rows.length === 0){
+            return res.status(200).json([]);
+        }
+        res.status(200).json(rows);
+    }
+    catch(error){
+        next(error);
+    }
+})
+
+// Add Food to the diary O
+router.post('/diary/add/food', authenticateToken, async (req,res,next) => {
+    try{
+        const userId = req.user.userId;
+
+        const {foodId, logDate, mealChoice, amount} = req.body;
 
         if (isNaN(parseInt(foodId)) || parseInt(foodId) <= 0) {
             return res.status(400).json({ message: "Invalid Food ID" });
@@ -206,20 +184,17 @@ router.post('/diary/add/food', async (req,res,next) => {
 })
 
 // Update Food Entry already logged in the diary O
-router.put('/diary/update/:id', async (req, res, next) => {
+router.put('/diary/update/:id', authenticateToken,  async (req, res, next) => {
     try {
         const logId = parseInt(req.params.id);
-        const { userId, foodId, amount } = req.body;
+        const {foodId, amount } = req.body;
 
         // 1. Validate Log ID
         if (isNaN(logId) || logId <= 0) {
             return res.status(400).json({ message: "Invalid Log ID" });
         }
 
-        const parsedUserId = parseInt(userId);
-        if (isNaN(parsedUserId) || parsedUserId <= 0) {
-            return res.status(400).json({ message: "Invalid User ID" });
-        }
+        const userId = req.user.userId;
 
         const newAmount = parseFloat(amount);
         if (isNaN(newAmount) || newAmount < 0) {
@@ -239,8 +214,8 @@ router.put('/diary/update/:id', async (req, res, next) => {
         const newTot = food[0].calorie * newAmount;
 
         const [result] = await db.query(
-            'UPDATE daily_logs SET amount = ?, calories = ? WHERE id = ? AND user_id = ?',
-            [newAmount, newTot, logId, parsedUserId]
+            'UPDATE daily_logs SET amount = ?, calories = ?, food_id = ? WHERE id = ? AND user_id = ?',
+            [newAmount, newTot, parsedFoodId, logId, userId]
         );
 
         if (result.affectedRows === 0) {
@@ -254,15 +229,17 @@ router.put('/diary/update/:id', async (req, res, next) => {
 });
 
 // Delete Food Entry from the diary O   
-router.delete('/diary/delete/:id', async (req, res, next) => {
+router.delete('/diary/delete/:id', authenticateToken, async (req, res, next) => {
     try{
         const logId = parseInt(req.params.id);
+
+        const userId = req.user.userId;
 
         if (isNaN(logId) || logId <= 0){
             return res.status(400).json({message: "Invalid Log"});
         }
 
-        const [result] = await db.query('DELETE FROM daily_logs WHERE id = ?',[logId]);
+        const [result] = await db.query('DELETE FROM daily_logs WHERE id = ? AND user_id = ?',[logId, userId]);
 
         if (result.affectedRows === 0){
             return res.status(404).json({message: "Log Not Found"});
